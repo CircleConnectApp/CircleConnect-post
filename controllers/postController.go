@@ -16,29 +16,32 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-
 type PostController struct {
 	DB *mongo.Database
 }
-
 
 func NewPostController(db *mongo.Database) *PostController {
 	return &PostController{DB: db}
 }
 
-
 func (pc *PostController) CreatePost(c *gin.Context) {
+	log.Println("CreatePost: Endpoint hit")
+
 	var req models.CreatePostRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("CreatePost: Error binding JSON: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	log.Printf("CreatePost: Request body: %+v", req)
 
 	userID, exists := c.Get("user_id")
 	if !exists {
+		log.Println("CreatePost: User not authenticated")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
+	log.Printf("CreatePost: User ID: %v", userID)
 
 	now := time.Now()
 	post := models.Post{
@@ -51,22 +54,22 @@ func (pc *PostController) CreatePost(c *gin.Context) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
+	log.Printf("CreatePost: Post to insert: %+v", post)
 
 	result, err := pc.DB.Collection(database.PostCollection).InsertOne(context.Background(), post)
 	if err != nil {
-		log.Printf("Error creating post: %v", err)
+		log.Printf("CreatePost: Error inserting post: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create post"})
 		return
 	}
 
-	
 	if oid, ok := result.InsertedID.(primitive.ObjectID); ok {
 		post.ID = oid
+		log.Printf("CreatePost: Post created with ID: %v", post.ID)
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"post": post})
 }
-
 
 func (pc *PostController) GetAllPosts(c *gin.Context) {
 	ctx := context.Background()
@@ -92,7 +95,6 @@ func (pc *PostController) GetAllPosts(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"posts": posts})
 }
 
-
 func (pc *PostController) GetPostByID(c *gin.Context) {
 	id := c.Param("id")
 
@@ -116,7 +118,6 @@ func (pc *PostController) GetPostByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"post": post})
 }
-
 
 func (pc *PostController) GetPostsByCommunity(c *gin.Context) {
 	communityID := c.Param("community_id")
@@ -150,7 +151,6 @@ func (pc *PostController) GetPostsByCommunity(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"posts": posts})
 }
-
 
 func (pc *PostController) GetPostsByUser(c *gin.Context) {
 	userID, exists := c.Get("user_id")
