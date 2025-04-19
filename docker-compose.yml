@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:latest
+    container_name: circle-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: circle-app
+    ports:
+      - "4000:4000"
+    environment:
+      MONGO_URI: "mongodb://admin:admin@mongo:27017"
+      DB_NAME: "circleconnect"
+      PORT: "4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  mongodb_data:
